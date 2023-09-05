@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kosmos-prow
+  name: hook
+  labels:
+    app: hook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hook
+  template:
+    metadata:
+      labels:
+        app: hook
+    spec:
+      nodeSelector:
+        node: node1
+      serviceAccountName: hook
+      containers:
+        - args:
+            - --dry-run=false
+            - --config-path=/etc/config/config.yaml
+            - --github-endpoint=https://api.github.com
+            - --github-token-path=/etc/github/oauth
+          image: $(IMAGE_REPOSITORY)/k8s-prow/hook:$(IMAGE_VERSION)
+          imagePullPolicy: IfNotPresent
+          name: hook
+          ports:
+            - name: http
+              containerPort: 8888
+          env:
+            - name: IMAGE_REPOSITORY
+              value: "cnp-2db5848a.ecis.huabei-3.cmecloud.cn/cnp"
+            - name: IMAGE_VERSION
+              value: "v20201026-f7d653694b"
+          volumeMounts:
+            - mountPath: /etc/webhook
+              name: hmac
+              readOnly: true
+            - mountPath: /etc/github
+              name: oauth
+              readOnly: true
+            - mountPath: /etc/config
+              name: config
+              readOnly: true
+            - mountPath: /etc/plugins
+              name: plugins
+              readOnly: true
+      volumes:
+        - name: hmac
+          secret:
+            secretName: hmac-token
+        - name: oauth
+          secret:
+            secretName: oauth-token
+        - configMap:
+            name: config
+          name: config
+        - configMap:
+            name: plugins
+          name: plugins
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: kosmos-prow
+  name: hook
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kosmos-prow
+  name: hook
+rules:
+  - apiGroups:
+      - prow.k8s.io
+    resources:
+      - prowjobs
+    verbs:
+      - create
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+      - get
+      - update
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kosmos-prow
+  name: hook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hook
+subjects:
+  - kind: ServiceAccount
+    name: hook
+    namespace: kosmos-prow
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hook
+  namespace: kosmos-prow
+spec:
+  ports:
+    - name: http
+      port: 8888
+  selector:
+    app: hook
+  type: NodePort

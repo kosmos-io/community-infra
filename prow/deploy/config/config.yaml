@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+  namespace: kosmos-prow
+data:
+  config.yaml: |+
+    prowjob_namespace: kosmos-prow
+    pod_namespace: test-pods
+    log_level: debug
+
+    tide:
+      sync_period: 1m
+      target_url: http://$(PUBLIC_IP):$(NODE_PORT)/tide
+
+      queries:
+        - orgs:
+            - kosmos-io
+          labels:
+            - lgtm
+            - approved
+          missingLabels:
+            - do-not-merge/work-in-progress
+            - do-not-merge/invalid-owners-file
+            - do-not-merge/hold
+            - do-not-merge
+            - needs-rebase
+      merge_method:
+        kosmos-io/kosmos: merge
+        kosmos-io/community-infra: merge
+      context_options:
+        skip-unknown-contexts: true
+      blocker_label: tide/merge-blocker
+      squash_label: tide/merge-method-squash
+      rebase_label: tide/merge-method-rebase
+      merge_label: tide/merge-method-merge
