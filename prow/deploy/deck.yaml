@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kosmos-prow
+  name: deck
+  labels:
+    app: deck
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deck
+  template:
+    metadata:
+      labels:
+        app: deck
+    spec:
+      nodeSelector:
+        node: node1
+      serviceAccountName: deck
+      containers:
+        - args:
+            - --config-path=/etc/config/config.yaml
+            - --plugin-config=/etc/plugins/plugins.yaml
+            - --tide-url=http://tide
+            - --hook-url=http://hook:8888/plugin-help
+            - --redirect-http-to=$(PUBLIC_IP)
+            - --github-endpoint=https://api.github.com
+            - --spyglass=true
+          image: $(IMAGE_REPOSITORY)/k8s-prow/deck:$(IMAGE_VERSION)
+          imagePullPolicy: IfNotPresent
+          name: deck
+          env:
+            - name: PUBLIC_IP
+              value: "192.168.0.1"
+            - name: IMAGE_REPOSITORY
+              value: "cnp-2db5848a.ecis.huabei-3.cmecloud.cn/cnp"
+            - name: IMAGE_VERSION
+              value: "v20230817-a7555751ac"
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /etc/config
+              name: config
+              readOnly: true
+            - mountPath: /etc/plugins
+              name: plugins
+              readOnly: true
+      volumes:
+        - configMap:
+            name: config
+          name: config
+        - configMap:
+            name: plugins
+          name: plugins
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: kosmos-prow
+  name: deck
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kosmos-prow
+  name: deck
+rules:
+  - apiGroups:
+      - prow.k8s.io
+    resources:
+      - prowjobs
+    verbs:
+      - get
+      - list
+      - create
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: kosmos-prow
+  name: deck
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: deck
+subjects:
+  - kind: ServiceAccount
+    name: deck
+    namespace: kosmos-prow
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deck
+  namespace: kosmos-prow
+spec:
+  ports:
+    - name: main
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: deck
+  type: NodePort

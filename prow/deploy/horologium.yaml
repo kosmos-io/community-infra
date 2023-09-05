@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kosmos-prow
+  name: horologium
+  labels:
+    app: horologium
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: horologium
+  template:
+    metadata:
+      labels:
+        app: horologium
+    spec:
+      nodeSelector:
+        node: node1
+      containers:
+        - args:
+            - --config-path=/etc/config/config.yaml
+            - --deck-url=http:deck:888
+            - --dry-run=false
+          image: $(IMAGE_REPOSITORY)/k8s-prow/horologium:$(IMAGE_VERSION)
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: IMAGE_REPOSITORY
+              value: "cnp-2db5848a.ecis.huabei-3.cmecloud.cn/cnp"
+            - name: IMAGE_VERSION
+              value: "v20201026-f7d653694b"
+          name: horologium
+          volumeMounts:
+            - mountPath: /etc/config
+              name: config
+              readOnly: true
+      volumes:
+        - configMap:
+            name: config
+          name: config

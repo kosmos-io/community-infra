@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: kosmos-prow
+  labels:
+    app: ghproxy
+  name: ghproxy
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: openebs-hostpath
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kosmos-prow
+  name: ghproxy
+  labels:
+    app: ghproxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ghproxy
+  template:
+    metadata:
+      labels:
+        app: ghproxy
+    spec:
+      nodeSelector:
+        node: node1
+      containers:
+        - name: ghproxy
+          image: $(IMAGE_REPOSITORY)/k8s-prow/ghproxy:$(IMAGE_VERSION)
+          args:
+            - --cache-dir=/cache
+            - --cache-sizeGB=99
+            - --serve-metrics=true
+          ports:
+            - name: http
+              containerPort: 8888
+          env:
+            - name: IMAGE_REPOSITORY
+              value: "cnp-2db5848a.ecis.huabei-3.cmecloud.cn/cnp"
+            - name: IMAGE_VERSION
+              value: "v20201026-f7d653694b"
+          volumeMounts:
+            - name: cache
+              mountPath: /cache
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: ghproxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kosmos-prow
+  name: ghproxy
+  labels:
+    app: ghproxy
+spec:
+  ports:
+    - name: main
+      port: 80
+      protocol: TCP
+      targetPort: 8888
+  selector:
+    app: ghproxy
+

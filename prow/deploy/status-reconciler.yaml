@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: kosmos-prow
+  name: status-reconciler
+  labels:
+    app: status-reconciler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: status-reconciler
+  template:
+    metadata:
+      labels:
+        app: status-reconciler
+    spec:
+      nodeSelector:
+        node: node1
+      containers:
+        - args:
+            - --dry-run=false
+            - --continue-on-error=true
+            - --plugin-config=/etc/plugins/plugins.yaml
+            - --config-path=/etc/config/config.yaml
+            - --github-endpoint=https://api.github.com
+            - --github-token-path=/etc/github/oauth
+          image: $(IMAGE_REPOSITORY)/k8s-prow/status-reconciler:$(IMAGE_VERSION)
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: IMAGE_REPOSITORY
+              value: "cnp-2db5848a.ecis.huabei-3.cmecloud.cn/cnp"
+            - name: IMAGE_VERSION
+              value: "v20201026-f7d653694b"
+          name: status-reconciler
+          volumeMounts:
+            - mountPath: /etc/github
+              name: oauth
+              readOnly: true
+            - mountPath: /etc/config
+              name: config
+              readOnly: true
+            - mountPath: /etc/plugins
+              name: plugins
+              readOnly: true
+      volumes:
+        - name: oauth
+          secret:
+            secretName: oauth-token
+        - configMap:
+            name: config
+          name: config
+        - configMap:
+            name: plugins
+          name: plugins

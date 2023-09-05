@@ -1,0 +1,5 @@
+# This file contains Kubernetes YAML files for the most important prow namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kosmos-prow
